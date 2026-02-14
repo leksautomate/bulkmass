@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Bulk Image Generator using Google Whisk API (Imagen 3). Generate hundreds of AI images from text prompts.">
+    <title>Bulkmass - Bulk Image Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- ============================================ -->
+        <!-- LEFT SIDEBAR -->
+        <!-- ============================================ -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-scroll">
+
+                <!-- Step 1: Authentication -->
+                <div class="sidebar-section" id="step-auth">
+                    <div class="step-header">
+                        <span class="step-number">1</span>
+                        <span class="section-title">Authentication</span>
+                    </div>
+                    <label class="input-label">Paste your cookie from aitestkitchen.withgoogle.com</label>
+                    <textarea class="input input-mono" id="cookie-input" rows="4"
+                        placeholder='Paste JSON cookie array or raw cookie string...'></textarea>
+                    <div class="btn-row" style="margin-top: 10px;">
+                        <button class="btn btn-secondary btn-sm"
+                            onclick="window.open('https://aitestkitchen.withgoogle.com/','_blank')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                <polyline points="15 3 21 3 21 9" />
+                                <line x1="10" y1="14" x2="21" y2="3" />
+                            </svg>
+                            Get Cookie
+                        </button>
+                        <button class="btn btn-primary btn-sm" id="btn-validate">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                <polyline points="22 4 12 14.01 9 11.01" />
+                            </svg>
+                            Validate
+                        </button>
+                    </div>
+
+                    <!-- Session Status -->
+                    <div class="status-indicator" id="status-badge" style="margin-top: 12px;">
+                        <span class="status-dot" id="status-dot"></span>
+                        <span id="status-text">Disconnected</span>
+                    </div>
+
+                    <!-- Cookie Expiration -->
+                    <div class="cookie-timer-section" id="cookie-timer-section" style="display:none; margin-top: 10px;">
+                        <div class="cookie-timer" id="cookie-timer">
+                            <span class="timer-value" id="timer-hours">0</span><span class="timer-label">h</span>
+                            <span class="timer-sep">:</span>
+                            <span class="timer-value" id="timer-minutes">00</span><span class="timer-label">m</span>
+                            <span class="timer-sep">:</span>
+                            <span class="timer-value" id="timer-seconds">00</span><span class="timer-label">s</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Prompts -->
+                <div class="sidebar-section" id="step-prompts">
+                    <div class="step-header">
+                        <span class="step-number">2</span>
+                        <span class="section-title">Prompts</span>
+                    </div>
+
+                    <!-- Import -->
+                    <div class="drop-zone" id="drop-zone">
+                        <input type="file" id="file-upload" accept=".txt,.csv,.json">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <div>Drop CSV/TXT/JSON or click to upload</div>
+                    </div>
+
+                    <!-- Manual Entry -->
+                    <div style="margin-top: 10px;">
+                        <div class="section-title collapsible" id="prompts-list-toggle">
+                            Manual Entry
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </div>
+                        <div class="prompts-list-wrap" id="prompts-list-wrap">
+                            <textarea class="input input-mono prompts-textarea" id="prompts-input" rows="6"
+                                placeholder="One prompt per line&#10;&#10;A serene mountain landscape&#10;A futuristic cityscape&#10;A cozy cabin in the woods"></textarea>
+                        </div>
+                        <div class="prompt-count" id="prompt-count">0 prompts</div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Settings -->
+                <div class="sidebar-section" id="step-settings">
+                    <div class="step-header">
+                        <span class="step-number">3</span>
+                        <span class="section-title">Settings</span>
+                    </div>
+
+                    <div class="config-row">
+                        <div class="config-item">
+                            <label class="input-label">Aspect Ratio</label>
+                            <select class="input select" id="aspect-ratio">
+                                <option value="1:1">Square 1:1</option>
+                                <option value="16:9" selected>Landscape 16:9</option>
+                                <option value="9:16">Portrait 9:16</option>
+                            </select>
+                        </div>
+                        <div class="config-item config-item-sm">
+                            <label class="input-label">Count</label>
+                            <input type="number" class="input" id="count-input" value="1" min="1" max="4">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 12px;">
+                        <label class="input-label">Style Prefix (added to all prompts)</label>
+                        <textarea class="input input-mono" id="style-prefix" rows="2"
+                            placeholder="e.g. cinematic lighting, 8k ultra detailed,"></textarea>
+                        <div class="prefix-preview" id="prefix-preview"></div>
+                    </div>
+                </div>
+
+                <!-- Square Ad Space -->
+                <div class="sidebar-section ad-section">
+                    <div class="ad-placeholder ad-square">
+                        <span class="ad-label">Advertisement</span>
+                        <div class="ad-slot" id="ad-square">
+                            <span class="ad-size">300 x 250</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Bottom Action Bar -->
+            <div class="sidebar-actions">
+                <div class="action-buttons">
+                    <button class="btn btn-start" id="btn-start" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                        Start
+                    </button>
+                    <button class="btn btn-pause" id="btn-pause" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <rect x="6" y="4" width="4" height="16" />
+                            <rect x="14" y="4" width="4" height="16" />
+                        </svg>
+                        Pause
+                    </button>
+                    <button class="btn btn-stop" id="btn-stop" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <rect x="4" y="4" width="16" height="16" rx="2" />
+                        </svg>
+                        Stop
+                    </button>
+                </div>
+                <div class="action-info">
+                    <span class="progress-text" id="sidebar-progress">0 of 0 completed</span>
+                    <div class="action-extras">
+                        <button class="btn btn-ghost btn-xs" id="btn-retry-errors" title="Retry Errors">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="23 4 23 10 17 10" />
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                            </svg>
+                            Retry
+                        </button>
+                        <button class="btn btn-ghost btn-xs" id="btn-download-zip" title="Download ZIP">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                            ZIP
+                        </button>
+                        <button class="btn btn-ghost btn-xs" id="btn-clear-all" title="Clear All">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-2 14H7L5 6" />
+                            </svg>
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============================================ -->
+        <!-- MAIN CONTENT -->
+        <!-- ============================================ -->
+        <main class="main-content">
+            <!-- Banner Ad (Top) -->
+            <div class="ad-section ad-banner-wrap">
+                <div class="ad-placeholder ad-banner">
+                    <span class="ad-label">Advertisement</span>
+                    <div class="ad-slot" id="ad-banner-top">
+                        <span class="ad-size">728 x 90</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Header -->
+            <div class="main-header">
+                <div class="main-header-left">
+                    <h1 class="main-title">Bulk Image Generator</h1>
+                    <p class="main-subtitle">Generate AI images at scale using Google Whisk (Imagen 3)</p>
+                </div>
+                <div class="main-header-right">
+                    <button class="btn btn-primary" id="header-download-zip">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Download ZIP
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="main-progress" id="main-progress" style="display:none">
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Card Grid -->
+            <div class="card-grid-wrap">
+                <div class="card-grid" id="card-grid"></div>
+
+                <!-- Empty State -->
+                <div class="empty-state" id="empty-state">
+                    <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <div class="empty-state-title">No images yet</div>
+                    <div class="empty-state-text">Add prompts in the sidebar, validate your cookie, and click Start
+                    </div>
+                </div>
+            </div>
+
+            <!-- Banner Ad (Bottom) -->
+            <div class="ad-section ad-banner-wrap">
+                <div class="ad-placeholder ad-banner">
+                    <span class="ad-label">Advertisement</span>
+                    <div class="ad-slot" id="ad-banner-bottom">
+                        <span class="ad-size">728 x 90</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Content -->
+            <div class="about-content">
+                <div class="about-section">
+                    <h2 class="about-title">What Is Bulkmass?</h2>
+                    <p>Bulkmass is a powerful bulk image generation tool built for creators, designers, marketers, and
+                        anyone who needs to produce large volumes of high-quality AI-generated images in a single
+                        session. Powered by Google's Imagen 3 model through the Whisk API, Bulkmass lets you turn dozens
+                        or even hundreds of text prompts into stunning visuals without the tedious process of generating
+                        them one at a time. Whether you are building a product catalog, creating social media content,
+                        designing game assets, or simply exploring creative ideas at scale, Bulkmass streamlines the
+                        entire workflow into a single dashboard where you can manage, monitor, and download everything
+                        in one place.</p>
+                    <p>Traditional AI image generators force you to enter one prompt, wait for the result, save it, then
+                        repeat. That workflow breaks down the moment you need more than a handful of images. Bulkmass
+                        eliminates that bottleneck entirely. You paste your prompts, set your preferences, and hit
+                        start. The system queues every prompt, processes them through Google's image generation
+                        pipeline, and delivers the results directly to your browser in real time. There is no tab
+                        switching, no copy-pasting, and no lost outputs. Everything stays organized in a clean card grid
+                        with status tracking, image previews, and instant download options.</p>
+                </div>
+
+                <div class="about-section">
+                    <h2 class="about-title">How It Works</h2>
+                    <p>Using Bulkmass is straightforward. The entire process can be broken down into a few simple steps
+                        that take you from authentication to a folder full of generated images in minutes.</p>
+
+                    <h3 class="about-subtitle">Step 1: Authenticate with Your Google Cookie</h3>
+                    <p>Bulkmass uses your Google session cookie to communicate with the Whisk API on your behalf. To get
+                        started, visit <strong>aitestkitchen.withgoogle.com</strong> and sign in with your Google
+                        account. Once you are logged in, use a browser extension like EditThisCookie to export your
+                        session cookies as a JSON array, then paste the full JSON into the cookie input field in the
+                        sidebar. Click "Validate" and the system will validate your credentials against the Whisk API.
+                        If everything checks out, the status indicator turns green and you are ready to generate. Your
+                        cookie is stored locally in your browser so you do not need to paste it again on your next
+                        visit, though cookies do expire and you may need to refresh them periodically. The cookie
+                        expiration timer in the sidebar shows you exactly how much time you have left before
+                        re-authentication is needed.</p>
+
+                    <h3 class="about-subtitle">Step 2: Configure Your Settings</h3>
+                    <p>Before you start generating, you can fine-tune a few settings to match your project requirements.
+                        The aspect ratio selector lets you choose between Square (1:1), Landscape (16:9), and Portrait
+                        (9:16) formats. This setting applies uniformly to every image in the batch, ensuring visual
+                        consistency across all your outputs. The count multiplier lets you generate multiple copies of
+                        each prompt, which is useful when you want variations of the same concept. For example, if you
+                        have 10 prompts and set the count to 3, Bulkmass will generate 30 images total, with 3 versions
+                        of each prompt.</p>
+
+                    <h3 class="about-subtitle">Step 3: Add Your Style Prefix</h3>
+                    <p>One of the most useful features in Bulkmass is the style prefix. This is a text snippet that gets
+                        automatically prepended to every single prompt before it is sent to the AI model. By setting a
+                        style prefix like "cinematic lighting, 8k ultra detailed, oil painting style," every prompt in
+                        your batch inherits that same stylistic direction. This is incredibly powerful for maintaining
+                        visual consistency across a large set of images. Instead of manually writing the same style
+                        keywords into every prompt, you write it once in the style prefix box and it applies everywhere.
+                        The live preview below the prefix field shows you exactly what the first combined prompt will
+                        look like, so you can verify the formatting before committing to a full generation run.</p>
+
+                    <h3 class="about-subtitle">Step 4: Enter Your Prompts</h3>
+                    <p>Prompts are the core input for image generation. You can add them in two ways. The first is by
+                        typing or pasting directly into the prompts textarea in the sidebar. Each line represents one
+                        prompt, so you can quickly paste a list of descriptions separated by line breaks. Lines starting
+                        with a hash symbol (#) are treated as comments and ignored, which is handy for organizing large
+                        prompt lists with section headers. The second method is file import. You can drag and drop a
+                        TXT, CSV, or JSON file onto the import zone, or click to browse. TXT files are parsed as one
+                        prompt per line. CSV files use the first column as the prompt text, automatically skipping any
+                        header row. JSON files can contain a flat array of strings or an array of objects with a
+                        "prompt" or "text" field. After import, the prompts appear in the textarea where you can edit
+                        them further before starting.</p>
+
+                    <h3 class="about-subtitle">Step 5: Start Generating</h3>
+                    <p>Once your cookie is validated, your settings are configured, and your prompts are loaded, click
+                        the "Start" button at the bottom of the sidebar. Bulkmass begins processing your prompts one by
+                        one. Each prompt is sent to Google's Imagen 3 model through the Whisk API, and the resulting
+                        image is delivered directly to your browser and stored locally. You do not need to refresh the
+                        page or poll for updates. You will see each image appear in the card grid as it completes, with
+                        a live progress bar tracking overall completion at the top of the main content area. All images
+                        are stored in your browser's IndexedDB storage, so they persist even if you refresh the page.
+                    </p>
+
+                    <h3 class="about-subtitle">Step 6: Review, Download, and Manage</h3>
+                    <p>As images finish generating, they appear as cards in a responsive grid. Click any image to open a
+                        full-size lightbox preview. Each card has buttons for downloading a single image or deleting it.
+                        When your batch is complete, you can download everything at once using the "Download ZIP"
+                        button, which packages all generated images into a compressed archive entirely in your browser.
+                        The sidebar provides additional actions: "Retry" resets any failed prompts so you can re-run
+                        them, and "Clear" wipes the entire workspace clean.</p>
+                </div>
+
+                <div class="about-section">
+                    <h2 class="about-title">Key Features</h2>
+
+                    <h3 class="about-subtitle">Multi-User at Scale</h3>
+                    <p>Bulkmass is designed for concurrent use by thousands of users. Each user authenticates with their
+                        own Google cookie, and all processing state is managed locally in the browser. The server acts
+                        as a lightweight, stateless proxy that simply forwards requests to Google's Whisk API. This
+                        architecture means there is no shared state between users, no server-side job queue, and no risk
+                        of one user's activity affecting another. Whether 1 or 1000 users are generating images
+                        simultaneously, each user gets their own independent experience.</p>
+
+                    <h3 class="about-subtitle">Browser-Native Storage</h3>
+                    <p>All generated images are stored in your browser's IndexedDB, a high-capacity local database. Your
+                        cookies, preferences, and generation queue are saved in localStorage. This means your data stays
+                        on your device, survives page refreshes, and requires zero server-side storage. You maintain
+                        full control over your data at all times.</p>
+
+                    <h3 class="about-subtitle">Bulk Processing</h3>
+                    <p>Bulkmass handles batches of any size. The client-side queue processes prompts sequentially with
+                        intelligent rate limiting and exponential backoff on errors. File I/O is eliminated from the
+                        generation pipeline since images go directly from the API to your browser's storage.</p>
+
+                    <h3 class="about-subtitle">Real-Time Progress Tracking</h3>
+                    <p>Every aspect of the generation process is visible in real time. The main progress bar shows
+                        overall batch completion. The sidebar displays a running count of completed and failed images.
+                        Each card in the grid shows its individual status with color-coded indicators.</p>
+
+                    <h3 class="about-subtitle">Style Consistency with Prefix System</h3>
+                    <p>The style prefix feature ensures every prompt in your batch carries the same foundational style
+                        instructions. Whether you are generating product photos that all need the same lighting,
+                        illustrations with consistent art direction, or social media graphics with a uniform visual
+                        tone, the prefix system saves time and ensures consistency.</p>
+
+                    <h3 class="about-subtitle">Smart Error Handling</h3>
+                    <p>Network issues and API rate limits are handled gracefully with exponential backoff. After 5
+                        consecutive errors the queue pauses automatically. Failed prompts are clearly marked and can be
+                        retried with a single click. If your cookie expires mid-batch, the system detects the 401 error,
+                        pauses generation, and prompts you to re-authenticate.</p>
+
+                    <h3 class="about-subtitle">Client-Side ZIP Download</h3>
+                    <p>Download all your generated images as a ZIP archive without any server involvement. The ZIP is
+                        created entirely in your browser using JSZip, reading directly from your local IndexedDB
+                        storage.</p>
+                </div>
+
+                <div class="about-section">
+                    <h2 class="about-title">Who Is Bulkmass For?</h2>
+                    <p>Bulkmass is built for anyone who needs AI-generated images in quantity. Content creators use it
+                        to produce batches of social media graphics, blog illustrations, and thumbnail images in a
+                        single session. E-commerce sellers use it to generate product mockups, lifestyle imagery, and
+                        catalog visuals across entire product lines. Game developers and indie studios use it for
+                        concept art exploration, generating dozens of environment, character, or item variations from a
+                        single prompt list. Marketers use it to produce A/B test assets, ad creatives, and campaign
+                        imagery at a pace that would be impossible with one-at-a-time generation tools.</p>
+                    <p>If you have ever found yourself copying the same prompt into an AI image generator over and over,
+                        tweaking one word at a time and saving each result manually, Bulkmass is the tool that automates
+                        that entire workflow and gives you back your time.</p>
+                </div>
+
+                <div class="about-section">
+                    <h2 class="about-title">Getting Started</h2>
+                    <p>To start using Bulkmass, you need a Google account with access to AI Test Kitchen at
+                        aitestkitchen.withgoogle.com. Sign in, export your session cookies using a browser extension,
+                        and paste them into the cookie input field in the sidebar. Once validated, enter your prompts
+                        either manually or by importing a file, optionally set a style prefix for consistency, choose
+                        your aspect ratio, and click "Start." Your images will begin appearing in the card grid within
+                        seconds, and you can download them individually or as a ZIP archive when the batch is complete.
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox">
+        <button class="lightbox-close" id="lightbox-close">&times;</button>
+        <img id="lightbox-img" src="" alt="">
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal-overlay" id="edit-modal" style="display:none">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Edit Prompt</h3>
+                <button class="btn btn-ghost btn-icon" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea class="input" id="edit-prompt-input" rows="4"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-cancel-edit">Cancel</button>
+                <button class="btn btn-secondary" id="btn-save-edit">Save</button>
+                <button class="btn btn-primary" id="btn-save-regenerate">Save & Regenerate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- JSZip for client-side ZIP creation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

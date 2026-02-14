@@ -1,0 +1,9 @@
+node_modules/
+output/
+uploads/
+data/
+logs/
+whisk-api-source/
+nul
+.env
+*.log

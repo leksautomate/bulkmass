@@ -1,0 +1,58 @@
+# Bulkmass
+
+Bulkmass is a bulk image generation tool powered by the Whisk API. It features a stateless server that proxies requests, a robust frontend for managing generations, and a streamlined deployment process.
+
+## Features
+- **Bulk Generation**: Generate multiple images at once using the Whisk API.
+- **Stateless Proxy**: Server handles API communication securely.
+- **Responsive UI**: Modern, dark-mode interface for managing prompts and results.
+
+## Local Development
+
+1. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+
+2. **Configure Environment**
+   Copy `.env.example` to `.env` (optional, defaults provided):
+   ```bash
+   cp .env.example .env
+   ```
+
+3. **Start Server**
+   ```bash
+   npm start
+   ```
+   The app will run at `http://localhost:5000`.
+
+## 🚀 One-Click Deployment (VPS)
+
+You can deploy the application to any Ubuntu/Debian VPS with a single command from your local Windows machine.
+
+### Prerequisites
+- A VPS (Ubuntu/Debian) with SSH access.
+- **PowerShell** (Standard on Windows).
+
+### How to Deploy
+
+1. Open **PowerShell** in this directory.
+2. Run the deployment script:
+   ```powershell
+   .\deploy.ps1
+   ```
+3. Follow the prompts:
+   - **VPS IP**: Enter your server's IP address.
+   - **VPS User**: Enter the username (usually `root`).
+   - **App Port**: Choose the port (default `5000`).
+   - **Domain**: (Optional) Enter your domain name for Nginx configuration.
+
+The script will automatically:
+- Zip your project files.
+- Upload them to the server.
+- Install Node.js, PM2, and Nginx (if missing).
+- Configure the firewall and Nginx reverse proxy.
+- Start the application.
+
+### Updating the App
+To update the deployed application, simply run `.\deploy.ps1` again. It will upload the changes and restart the server correctly.

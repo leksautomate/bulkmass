@@ -15,6 +15,78 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# ==========================================
+# PORT CONFLICT CHECK
+# ==========================================
+
+check_port_in_use() {
+    local port=$1
+    # Try ss first (modern Linux)
+    if command -v ss &> /dev/null; then
+        ss -tlnp 2>/dev/null | grep -q ":${port} " && return 0
+    fi
+    # Fallback to netstat
+    if command -v netstat &> /dev/null; then
+        netstat -tlnp 2>/dev/null | grep -q ":${port} " && return 0
+    fi
+    # Fallback to lsof
+    if command -v lsof &> /dev/null; then
+        lsof -i :"${port}" -sTCP:LISTEN &> /dev/null && return 0
+    fi
+    return 1
+}
+
+get_port_process() {
+    local port=$1
+    if command -v ss &> /dev/null; then
+        ss -tlnp 2>/dev/null | grep ":${port} " | sed 's/.*users:(("//' | sed 's/".*//' | head -1
+    elif command -v netstat &> /dev/null; then
+        netstat -tlnp 2>/dev/null | grep ":${port} " | awk '{print $NF}' | head -1
+    elif command -v lsof &> /dev/null; then
+        lsof -i :"${port}" -sTCP:LISTEN -t 2>/dev/null | head -1
+    fi
+}
+
+echo ""
+echo "Checking port $APP_PORT availability..."
+
+if check_port_in_use "$APP_PORT"; then
+    PORT_PROCESS=$(get_port_process "$APP_PORT")
+    echo ""
+    echo "=========================================="
+    echo "  ⚠  PORT $APP_PORT IS ALREADY IN USE!"
+    echo "=========================================="
+    if [ -n "$PORT_PROCESS" ]; then
+        echo "  Used by: $PORT_PROCESS"
+    fi
+    echo ""
+    echo "  Currently used ports on this system:"
+    echo "  ------------------------------------"
+    if command -v ss &> /dev/null; then
+        ss -tlnp 2>/dev/null | awk 'NR>1 {
+            split($4, a, ":");
+            port = a[length(a)];
+            if (port != "" && port+0 == port) print "    :" port
+        }' | sort -t: -k2 -n | uniq
+    elif command -v netstat &> /dev/null; then
+        netstat -tlnp 2>/dev/null | awk 'NR>2 {
+            split($4, a, ":");
+            port = a[length(a)];
+            if (port != "" && port+0 == port) print "    :" port
+        }' | sort -t: -k2 -n | uniq
+    fi
+    echo ""
+    echo "  Try a different port, e.g.:"
+    echo "    ./install.sh --port 3000"
+    echo "    ./install.sh --port 8080"
+    echo "    ./install.sh --port 8443"
+    echo "=========================================="
+    exit 1
+fi
+
+echo "✓ Port $APP_PORT is available."
+echo ""
+
 echo "=========================================="
 echo "      BULKMASS INSTALLER (VPS)           "
 echo "=========================================="

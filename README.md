@@ -1,4 +1,4 @@
-# Bulkmass
+Bulkmass
 
 Bulkmass is a bulk image generation tool powered by the Whisk API. It features a stateless server that proxies requests, a robust frontend for managing generations, and a streamlined deployment process.
 
@@ -56,3 +56,14 @@ The script will automatically:
 
 ### Updating the App
 To update the deployed application, simply run `.\deploy.ps1` again. It will upload the changes and restart the server correctly.
+
+## 🖥️ Direct Installation on VPS
+
+If you are already logged into your VPS via SSH and have the files there (e.g., via `git clone`), run:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+This will run the same installation steps directly on the server.

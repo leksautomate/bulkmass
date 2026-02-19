@@ -59,6 +59,7 @@ async function loadWhiskApi() {
         whiskLoaded = true;
     } catch (e) {
         console.warn('[Whisk] API not available:', e.message);
+        console.warn(e.stack);
         Whisk = null;
     }
 }

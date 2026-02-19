@@ -62,7 +62,16 @@ To update the deployed application, simply run `.\deploy.ps1` again. It will upl
 If you are already logged into your VPS via SSH and have the files there (e.g., via `git clone`), run:
 
 ```bash
+# Clone the repository
+git clone https://github.com/leksautomate/bulkmass.git
+
+# Enter the directory (CRITICAL!)
+cd bulkmass
+
+# Make installer executable
 chmod +x install.sh
+
+# Run installer
 ./install.sh
 ```
 

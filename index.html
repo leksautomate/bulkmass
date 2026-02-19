@@ -16,6 +16,48 @@
 </head>
 
 <body>
+
+    <!-- Hamburger Menu Button -->
+    <button class="hamburger-btn" id="hamburger-btn" title="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+    </button>
+
+    <!-- Navigation Overlay -->
+    <div class="nav-overlay" id="nav-overlay"></div>
+
+    <!-- Navigation Sidebar -->
+    <nav class="nav-sidebar" id="nav-sidebar">
+        <div class="nav-sidebar-header">
+            <span class="nav-sidebar-brand">BULKMASS</span>
+            <button class="nav-sidebar-close" id="nav-sidebar-close">&times;</button>
+        </div>
+        <div class="nav-sidebar-links">
+            <a href="index.html" class="nav-sidebar-link active">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                </svg>
+                Bulk Image Generator
+            </a>
+            <a href="cinescript.html" class="nav-sidebar-link">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+                    <line x1="7" y1="2" x2="7" y2="22" />
+                    <line x1="17" y1="2" x2="17" y2="22" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                </svg>
+                Cine-Script AI
+            </a>
+        </div>
+        <div class="nav-sidebar-footer">Bulkmass Tools Suite</div>
+    </nav>
+
     <div class="app-layout">
         <!-- ============================================ -->
         <!-- LEFT SIDEBAR -->
@@ -464,6 +506,29 @@
     <!-- JSZip for client-side ZIP creation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="app.js"></script>
+
+    <!-- Navigation Sidebar Script -->
+    <script>
+        (function () {
+            const hamburger = document.getElementById('hamburger-btn');
+            const navSidebar = document.getElementById('nav-sidebar');
+            const navOverlay = document.getElementById('nav-overlay');
+            const navClose = document.getElementById('nav-sidebar-close');
+
+            function openNav() {
+                navSidebar.classList.add('open');
+                navOverlay.classList.add('open');
+            }
+            function closeNav() {
+                navSidebar.classList.remove('open');
+                navOverlay.classList.remove('open');
+            }
+
+            if (hamburger) hamburger.addEventListener('click', openNav);
+            if (navOverlay) navOverlay.addEventListener('click', closeNav);
+            if (navClose) navClose.addEventListener('click', closeNav);
+        })();
+    </script>
 </body>
 
 </html>

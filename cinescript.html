@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Cine-Script AI - Generate cinematic video scripts with AI-powered story angles, hooks, and dramatic narratives.">
+    <title>Cine-Script AI - Cinematic Script Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="cinescript.css">
+</head>
+
+<body>
+
+    <!-- Hamburger Menu Button -->
+    <button class="hamburger-btn" id="hamburger-btn" title="Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+    </button>
+
+    <!-- Navigation Overlay -->
+    <div class="nav-overlay" id="nav-overlay"></div>
+
+    <!-- Navigation Sidebar -->
+    <nav class="nav-sidebar" id="nav-sidebar">
+        <div class="nav-sidebar-header">
+            <span class="nav-sidebar-brand">BULKMASS</span>
+            <button class="nav-sidebar-close" id="nav-sidebar-close">&times;</button>
+        </div>
+        <div class="nav-sidebar-links">
+            <a href="index.html" class="nav-sidebar-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                </svg>
+                Bulk Image Generator
+            </a>
+            <a href="cinescript.html" class="nav-sidebar-link active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+                    <line x1="7" y1="2" x2="7" y2="22" />
+                    <line x1="17" y1="2" x2="17" y2="22" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                </svg>
+                Cine-Script AI
+            </a>
+        </div>
+        <div class="nav-sidebar-footer">Bulkmass Tools Suite</div>
+    </nav>
+
+    <!-- Header -->
+    <header class="cs-header">
+        <div class="cs-header-inner">
+            <div class="cs-brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+                    <line x1="7" y1="2" x2="7" y2="22" />
+                    <line x1="17" y1="2" x2="17" y2="22" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                </svg>
+                CINE-SCRIPT AI
+            </div>
+            <div class="cs-header-actions">
+                <button class="cs-settings-btn" id="cs-settings-btn" title="Settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                </button>
+                <span class="cs-step-counter" id="cs-step-counter">STEP 1/5</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Settings Panel -->
+    <div class="cs-settings-panel" id="cs-settings-panel">
+        <div class="cs-settings-inner">
+            <div class="cs-settings-field">
+                <label class="cs-settings-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                    </svg>
+                    Groq API Key
+                </label>
+                <input type="password" id="api-key-input" class="cs-settings-input"
+                    placeholder="Paste your Groq API Key here (gsk_...)">
+                <p class="cs-settings-hint">
+                    Get your free key at <a href="https://console.groq.com/keys" target="_blank"
+                        style="color: var(--cs-accent); text-decoration: none;">console.groq.com/keys</a>.
+                    Your key is stored locally in your browser.
+                </p>
+            </div>
+            <button class="cs-settings-close" id="cs-settings-close" title="Close Settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="cs-main">
+        <!-- Loading Overlay -->
+        <div class="cs-loading" id="cs-loading" style="display:none">
+            <div class="cs-loading-spinner"></div>
+            <p class="cs-loading-text">Generating...</p>
+        </div>
+
+        <!-- Error Container -->
+        <div id="cs-error-container"></div>
+
+        <!-- STEP 0: Topic Input -->
+        <div class="cs-step active" id="cs-step-0">
+            <div class="cs-topic-section">
+                <h1 class="cs-topic-title">What's the story?</h1>
+                <p class="cs-topic-subtitle">Enter a topic, person, or event to uncover hidden angles.</p>
+                <div class="cs-topic-input-wrap">
+                    <input type="text" id="topic-input" class="cs-topic-input"
+                        placeholder="e.g. The invention of Coffee, Napoleon, Cyberpunk 2077...">
+                    <button class="cs-topic-btn" onclick="handleGenerateAngles()">
+                        Analyze
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 1: Select Angle -->
+        <div class="cs-step" id="cs-step-1">
+            <button class="cs-back-btn" onclick="showStep(0)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Back to Topic
+            </button>
+            <h2 class="cs-step-heading">Choose an unusual Angle</h2>
+            <p class="cs-step-context" id="angles-topic"></p>
+            <div class="cs-options-grid" id="angles-grid"></div>
+        </div>
+
+        <!-- STEP 2: Select Idea -->
+        <div class="cs-step" id="cs-step-2">
+            <button class="cs-back-btn" onclick="showStep(1)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Back to Angles
+            </button>
+            <h2 class="cs-step-heading">Select the core Conflict</h2>
+            <div class="cs-context-card">
+                Angle: <span id="ideas-angle"></span>
+            </div>
+            <div class="cs-options-grid" id="ideas-grid"></div>
+        </div>
+
+        <!-- STEP 3: Hook Review -->
+        <div class="cs-step" id="cs-step-3">
+            <button class="cs-back-btn" onclick="showStep(2)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Back to Ideas
+            </button>
+            <h2 class="cs-step-heading">Review the Hook</h2>
+            <p class="cs-step-context">This will be the first 5 seconds of the video.</p>
+
+            <div class="cs-hook-display">
+                <div class="cs-hook-accent-bar"></div>
+                <p class="cs-hook-text" id="hook-text"></p>
+            </div>
+
+            <div class="cs-hook-actions">
+                <button class="cs-btn-secondary" onclick="handleGenerateHook()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10" />
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                    </svg>
+                    Regenerate Hook
+                </button>
+                <button class="cs-btn-primary" onclick="handleGenerateFinalScript()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    Approve & Write Script
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 4: Final Script -->
+        <div class="cs-step" id="cs-step-4">
+            <div class="cs-final-header">
+                <div class="cs-final-status">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    SCRIPT READY
+                </div>
+                <button class="cs-final-reset" onclick="resetWizard()">Start New Script</button>
+            </div>
+
+            <div class="cs-script-wrap">
+                <div class="cs-script-glow"></div>
+                <div class="cs-script-body">
+                    <p class="cs-script-hook" id="final-hook"></p>
+                    <hr class="cs-script-divider">
+                    <div class="cs-script-text" id="final-script"></div>
+
+                    <button class="cs-copy-btn" onclick="copyScript()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+            </div>
+
+            <div class="cs-notes">
+                <h3 class="cs-notes-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                    Production Notes
+                </h3>
+                <ul class="cs-notes-list">
+                    <li>The hook is designed to stop scrolling immediately.</li>
+                    <li>The script uses short, punchy sentences for dynamic subtitles.</li>
+                    <li>The 7-part structure ensures retention through the "mid-point" lull.</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div class="cs-toast-container" id="cs-toast-container"></div>
+
+    <script src="cinescript.js"></script>
+</body>
+
+</html>

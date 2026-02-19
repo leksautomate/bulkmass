@@ -82,7 +82,7 @@ app.use((req, res, next) => {
 
 // Serve only public frontend files (not server code)
 const PUBLIC_DIR = __dirname;
-const ALLOWED_FILES = ['index.html', 'app.js', 'styles.css', 'favicon.ico'];
+const ALLOWED_FILES = ['index.html', 'app.js', 'styles.css', 'favicon.ico', 'cinescript.html', 'cinescript.js', 'cinescript.css'];
 
 app.get('/', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'index.html')));
 ALLOWED_FILES.forEach(file => {
@@ -381,7 +381,7 @@ app.use((err, req, res, next) => {
 (async () => {
     await loadWhiskApi();
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
         console.log(`
 ========================================
   Bulkmass Server (Multi-User)
@@ -390,6 +390,32 @@ app.use((err, req, res, next) => {
   Mode: Stateless Proxy
 ========================================
         `);
+    });
+
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`
+==========================================
+  ⚠  PORT ${PORT} IS ALREADY IN USE!
+==========================================
+  Another process is using port ${PORT}.
+  
+  To fix this, either:
+    1. Stop the other process using port ${PORT}
+    2. Use a different port:
+       PORT=3000 node server.js
+       PORT=8080 node server.js
+  
+  To find what's using the port:
+    Linux/Mac: lsof -i :${PORT}
+    Windows:   netstat -ano | findstr :${PORT}
+==========================================
+`);
+            process.exit(1);
+        } else {
+            console.error('[Server] Failed to start:', err.message);
+            process.exit(1);
+        }
     });
 })();
 

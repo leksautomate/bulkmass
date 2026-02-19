@@ -57,6 +57,9 @@ $Include = @(
     ".env.example",
     "index.html",
     "styles.css",
+    "cinescript.html",
+    "cinescript.js",
+    "cinescript.css",
     "whisk-api-source"
 )
 

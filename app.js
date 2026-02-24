@@ -1321,6 +1321,9 @@ function init() {
     // Restore queue state
     restoreQueueState();
 
+    // Bind reference image events (drag-and-drop + click)
+    bindReferenceEvents();
+
     updatePromptCount();
     updatePrefixPreview();
     updateSidebarSteps();

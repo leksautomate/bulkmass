@@ -55,7 +55,24 @@ The script will automatically:
 - Start the application.
 
 ### Updating the App
-To update the deployed application, simply run `.\deploy.ps1` again. It will upload the changes and restart the server correctly.
+
+**Option A: From your local Windows machine**
+
+Simply run the deploy script again — it will re-upload your latest files and restart the app:
+```powershell
+.\deploy.ps1
+```
+
+**Option B: Directly on the VPS via SSH**
+
+If you are already logged into your VPS, pull the latest changes from GitHub and restart:
+```bash
+cd ~/bulkmass
+git pull origin main
+npm install
+npx tsc --project whisk-api-source/
+pm2 restart bulkmass
+```
 
 ## 🖥️ Direct Installation on VPS
 

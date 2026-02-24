@@ -108,6 +108,50 @@ export class Whisk {
     }
 
     /**
+     * Upload a custom image to Whisk's storage
+     *
+     * @param rawBytes Base64 encoded image
+     * @param caption Caption describing the image
+     * @param category Media category (SUBJECT, SCENE, or STYLE)
+     * @param workflowId Project workflow id
+     * @param account Account{} object
+     */
+    static async uploadImage(rawBytes: string, caption: string, category: string, workflowId: string, account: Account): Promise<string> {
+        if (!(rawBytes?.trim?.())) {
+            throw new Error("image data is required")
+        }
+
+        if (!(caption?.trim?.())) {
+            throw new Error("caption is required")
+        }
+
+        if (!(account instanceof Account)) {
+            throw new Error("invalid or missing account");
+        }
+
+        const uploadResult = await request<any>(
+            "https://labs.google/fx/api/trpc/backbone.uploadImage",
+            {
+                headers: { cookie: account.getCookie() },
+                body: JSON.stringify({
+                    "json": {
+                        "clientContext": {
+                            "workflowId": workflowId
+                        },
+                        "uploadMediaInput": {
+                            "mediaCategory": category,
+                            "rawBytes": rawBytes,
+                            "caption": caption
+                        }
+                    }
+                })
+            }
+        );
+
+        return uploadResult.uploadMediaGenerationId;
+    }
+
+    /**
      * Generate caption from provided base64 image
      *
      * @param input base64 encoded image

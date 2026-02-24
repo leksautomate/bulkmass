@@ -1,5 +1,9 @@
 import type { Account } from "./Whisk.js";
-import { ImageAspectRatio, VideoAspectRatio, ImageExtension, ImageGenerationModel, VideoGenerationModel, ImageRefinementModel } from "./Constants.js";
+import { ImageAspectRatio, VideoAspectRatio, ImageExtension, ImageGenerationModel, VideoGenerationModel, ImageRefinementModel, MediaCategory } from "./Constants.js";
+export interface MediaReference {
+    prompt: string;
+    mediaGenerationId: string;
+}
 export interface MediaConfig {
     seed: number;
     prompt: string;
@@ -24,3 +28,4 @@ export type ImageExtensionTypes = typeof ImageExtension[keyof typeof ImageExtens
 export type ImageGenerationModelType = typeof ImageGenerationModel[keyof typeof ImageGenerationModel];
 export type VideoGenerationModelType = typeof VideoGenerationModel[keyof typeof VideoGenerationModel];
 export type ImageRefinementModelType = typeof ImageRefinementModel[keyof typeof ImageRefinementModel];
+export type MediaCategoryType = typeof MediaCategory[keyof typeof MediaCategory];

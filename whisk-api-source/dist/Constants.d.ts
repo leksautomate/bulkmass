@@ -35,3 +35,8 @@ export declare const VideoGenerationModel: Readonly<{
     readonly VEO_3_1: "VEO_3_1_I2V_12STEP";
     readonly VEO_FAST_3_1: "veo_3_1_i2v_s_fast";
 }>;
+export declare const MediaCategory: Readonly<{
+    readonly SUBJECT: "MEDIA_CATEGORY_SUBJECT";
+    readonly SCENE: "MEDIA_CATEGORY_SCENE";
+    readonly STYLE: "MEDIA_CATEGORY_STYLE";
+}>;

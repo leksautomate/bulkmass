@@ -117,18 +117,21 @@ const store = {
     stylePrefix: localStorage.getItem('bulkmass_prefix') || '',
     aspectRatio: localStorage.getItem('bulkmass_ratio') || '16:9',
     count: parseInt(localStorage.getItem('bulkmass_count')) || 1,
-    // Queue
-    jobs: [],           // { id, prompt, status, blobUrl, error }
+    jobs: [],
     isRunning: false,
     isPaused: false,
-    // Stats
+    totalCount: 0,
     completedCount: 0,
     failedCount: 0,
-    totalCount: 0,
-    // Backoff
-    consecutiveErrors: 0
-};
+    consecutiveErrors: 0,
+    aspectRatio: '16:9',
+    stylePrefix: '',
 
+    // Arrays for up to 3 references per category: { image: base64, caption: '' }
+    refSubject: [],
+    refStyle: [],
+    refScene: []
+};
 // Blob URL cache (not persisted, rebuilt from IndexedDB)
 const blobUrls = new Map();
 
@@ -194,6 +197,14 @@ function cacheDom() {
     DOM.btnSaveRegenerate = $('#btn-save-regenerate');
 
     DOM.toastContainer = $('#toast-container');
+
+    // Reference Multiple Dropzones
+    ['subject', 'style', 'scene'].forEach(cat => {
+        DOM[`ref${cat}Dropzone`] = $(`#ref-${cat}-dropzone`);
+        DOM[`ref${cat}Upload`] = $(`#ref-${cat}-upload`);
+        DOM[`ref${cat}Previews`] = $(`#ref-${cat}-previews`);
+        DOM[`ref${cat}Limit`] = $(`#ref-${cat}-limit`);
+    });
 }
 
 // ============================================
@@ -375,6 +386,121 @@ async function handleFileUpload(file) {
 }
 
 // ============================================
+// REFERENCE IMAGES
+// ============================================
+
+const MAX_REFS_PER_CAT = 3;
+
+function bindReferenceEvents() {
+    ['subject', 'style', 'scene'].forEach(cat => {
+        const dropzone = DOM[`ref${cat}Dropzone`];
+        const input = DOM[`ref${cat}Upload`];
+
+        // Drag and Drop Effects
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            handleReferenceUpload(e.dataTransfer.files, cat);
+        });
+
+        // Click Upload
+        input.addEventListener('change', (e) => handleReferenceUpload(e.target.files, cat));
+    });
+}
+
+function handleReferenceUpload(fileList, type) {
+    if (!fileList || fileList.length === 0) return;
+
+    // Convert to array and filter out non-images
+    const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+
+    // Capitalize type for store mapping (e.g. 'subject' -> 'refSubject')
+    const storeKey = `ref${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    let currentRefs = store[storeKey];
+
+    // Calculate how many more we can add
+    const availableSlots = MAX_REFS_PER_CAT - currentRefs.length;
+    if (availableSlots <= 0) {
+        toast(`Max ${MAX_REFS_PER_CAT} images reached for ${type}`, 'error');
+        return;
+    }
+
+    const filesToAdd = files.slice(0, availableSlots);
+
+    filesToAdd.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64 = e.target.result;
+            // Push new object with empty caption initially
+            store[storeKey].push({ image: base64, caption: '' });
+            renderReferencePreviews(type);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    if (files.length > availableSlots) {
+        toast(`Only added ${availableSlots} images. Max ${MAX_REFS_PER_CAT} reached.`, 'info');
+    }
+}
+
+function removeReference(type, index) {
+    const storeKey = `ref${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    store[storeKey].splice(index, 1);
+    renderReferencePreviews(type);
+}
+
+function updateReferenceCaption(type, index, value) {
+    const storeKey = `ref${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    if (store[storeKey][index]) {
+        store[storeKey][index].caption = value;
+    }
+}
+
+function renderReferencePreviews(type) {
+    const storeKey = `ref${type.charAt(0).toUpperCase() + type.slice(1)}`;
+    const items = store[storeKey];
+    const previewContainer = DOM[`ref${type}Previews`];
+    const limitLabel = DOM[`ref${type}Limit`];
+
+    limitLabel.textContent = `${items.length} / ${MAX_REFS_PER_CAT}`;
+
+    previewContainer.innerHTML = '';
+
+    items.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'ref-preview-item';
+        div.innerHTML = `
+            <div class="ref-preview-thumb-container">
+                <img src="${item.image}" alt="${type} reference ${index + 1}">
+                <button class="ref-preview-clear" onclick="removeReference('${type}', ${index})">&times;</button>
+            </div>
+            <input type="text" class="ref-caption-input" placeholder="Custom caption (optional)" value="${item.caption.replace(/"/g, '&quot;')}">
+        `;
+
+        // Listen to caption changes
+        const input = div.querySelector('.ref-caption-input');
+        input.addEventListener('input', (e) => updateReferenceCaption(type, index, e.target.value));
+
+        previewContainer.appendChild(div);
+    });
+
+    // Hide dropzone if maxed out
+    const dropzone = DOM[`ref${type}Dropzone`];
+    if (items.length >= MAX_REFS_PER_CAT) {
+        dropzone.style.display = 'none';
+    } else {
+        dropzone.style.display = 'flex';
+        // Reset input so picking same file again works
+        DOM[`ref${type}Upload`].value = '';
+    }
+}
+
+// ============================================
 // CLIENT-SIDE QUEUE ENGINE
 // ============================================
 
@@ -460,6 +586,12 @@ async function processQueue() {
     nextJob.status = 'processing';
     updateCard(nextJob.id);
 
+    const references = [];
+
+    store.refSubject.forEach(ref => references.push({ category: 'SUBJECT', image: ref.image, caption: ref.caption }));
+    store.refStyle.forEach(ref => references.push({ category: 'STYLE', image: ref.image, caption: ref.caption }));
+    store.refScene.forEach(ref => references.push({ category: 'SCENE', image: ref.image, caption: ref.caption }));
+
     try {
         const res = await fetch('/api/generate', {
             method: 'POST',
@@ -467,7 +599,8 @@ async function processQueue() {
             body: JSON.stringify({
                 cookie: store.cookie,
                 prompt: nextJob.prompt,
-                aspectRatio: store.aspectRatio
+                aspectRatio: store.aspectRatio,
+                references
             })
         });
 
@@ -868,6 +1001,11 @@ async function regenerateSingleJob(jobId) {
     updateCard(job.id);
     saveQueueState();
 
+    const references = [];
+    if (store.refSubject) references.push({ category: 'SUBJECT', image: store.refSubject });
+    if (store.refStyle) references.push({ category: 'STYLE', image: store.refStyle });
+    if (store.refScene) references.push({ category: 'SCENE', image: store.refScene });
+
     try {
         const res = await fetch('/api/generate', {
             method: 'POST',
@@ -875,7 +1013,8 @@ async function regenerateSingleJob(jobId) {
             body: JSON.stringify({
                 cookie: store.cookie,
                 prompt: job.prompt,
-                aspectRatio: store.aspectRatio
+                aspectRatio: store.aspectRatio,
+                references
             })
         });
 
@@ -1042,6 +1181,11 @@ const svgPlay = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentCo
 function init() {
     cacheDom();
 
+    // Reference Images state init
+    store.refSubject = null;
+    store.refStyle = null;
+    store.refScene = null;
+
     // Cookie
     DOM.btnValidate.addEventListener('click', validateCookie);
     DOM.cookieInput.addEventListener('keydown', (e) => {
@@ -1093,6 +1237,17 @@ function init() {
         e.preventDefault();
         DOM.dropZone.classList.remove('dragover');
         if (e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]);
+    });
+
+    // References file uploads
+    DOM.refSubjectUpload.addEventListener('change', (e) => handleReferenceUpload(e.target.files, 'Subject'));
+    DOM.refStyleUpload.addEventListener('change', (e) => handleReferenceUpload(e.target.files, 'Style'));
+    DOM.refSceneUpload.addEventListener('change', (e) => handleReferenceUpload(e.target.files, 'Scene'));
+
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('ref-preview-clear')) {
+            clearReference(e.target.dataset.type);
+        }
     });
 
     // Generation controls

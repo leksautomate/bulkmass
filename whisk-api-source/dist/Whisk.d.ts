@@ -25,6 +25,16 @@ export declare class Whisk {
      */
     static deleteMedia(mediaId: string | string[], account: Account): Promise<void>;
     /**
+     * Upload a custom image to Whisk's storage
+     *
+     * @param rawBytes Base64 encoded image
+     * @param caption Caption describing the image
+     * @param category Media category (SUBJECT, SCENE, or STYLE)
+     * @param workflowId Project workflow id
+     * @param account Account{} object
+     */
+    static uploadImage(rawBytes: string, caption: string, category: string, workflowId: string, account: Account): Promise<string>;
+    /**
      * Generate caption from provided base64 image
      *
      * @param input base64 encoded image

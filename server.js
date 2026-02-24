@@ -46,14 +46,8 @@ async function loadWhiskApi() {
         const localPath = path.resolve(__dirname, 'whisk-api-source/dist/index.js');
         const localUrl = 'file://' + localPath.replace(/\\/g, '/');
 
-        let mod;
-        if (fs.existsSync(localPath)) {
-            mod = await import(localUrl);
-            console.log('[Whisk] Local API loaded');
-        } else {
-            mod = await import('@rohitaryal/whisk-api');
-            console.log('[Whisk] Package API loaded');
-        }
+        const mod = await import(localUrl);
+        console.log('[Whisk] Local API loaded');
 
         Whisk = mod.Whisk || mod.default?.Whisk || mod.default;
         whiskLoaded = true;
@@ -259,7 +253,7 @@ app.post('/api/validate-cookie', async (req, res) => {
 // Generate a single image (stateless - creates Whisk per request)
 app.post('/api/generate', async (req, res) => {
     try {
-        const { cookie, prompt, aspectRatio } = req.body;
+        const { cookie, prompt, aspectRatio, references } = req.body;
         if (!cookie) return res.status(400).json({ success: false, error: 'Cookie is required' });
         if (!prompt) return res.status(400).json({ success: false, error: 'Prompt is required' });
 
@@ -291,10 +285,44 @@ app.post('/api/generate', async (req, res) => {
         try {
             const whisk = new Whisk(cookieString);
             const project = await whisk.newProject('Bulkmass');
-            const media = await project.generateImage({
-                prompt,
-                aspectRatio: mapAspectRatio(aspectRatio || '1:1')
-            });
+
+            let hasReferences = false;
+            if (references && Array.isArray(references)) {
+                for (const ref of references) {
+                    if (!ref.image || !ref.category) continue;
+
+                    // Strip the base64 data URI prefix
+                    const cleanBase64 = ref.image.replace(/^data:image\/\w+;base64,/, '');
+                    const customCaption = ref.caption?.trim() || undefined;
+
+                    if (ref.category === 'SUBJECT') {
+                        await project.addSubject(cleanBase64, customCaption);
+                        hasReferences = true;
+                    } else if (ref.category === 'SCENE') {
+                        await project.addScene(cleanBase64, customCaption);
+                        hasReferences = true;
+                    } else if (ref.category === 'STYLE') {
+                        await project.addStyle(cleanBase64, customCaption);
+                        hasReferences = true;
+                    }
+                }
+            }
+
+            let media;
+            if (hasReferences) {
+                media = await project.generateImageWithReferences({
+                    prompt,
+                    aspectRatio: mapAspectRatio(aspectRatio || '1:1')
+                });
+            } else {
+                media = await project.generateImage({
+                    prompt,
+                    aspectRatio: mapAspectRatio(aspectRatio || '1:1')
+                });
+            }
+
+            // Fire-and-forget delete project, just like before but we should keep it clean if we created it
+            try { project.delete().catch(() => { }); } catch (e) { }
 
             clearTimeout(timeout);
 

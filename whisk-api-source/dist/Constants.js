@@ -35,3 +35,8 @@ export const VideoGenerationModel = Object.freeze({
     VEO_3_1: "VEO_3_1_I2V_12STEP",
     VEO_FAST_3_1: "veo_3_1_i2v_s_fast",
 });
+export const MediaCategory = Object.freeze({
+    SUBJECT: "MEDIA_CATEGORY_SUBJECT",
+    SCENE: "MEDIA_CATEGORY_SCENE",
+    STYLE: "MEDIA_CATEGORY_STYLE",
+});

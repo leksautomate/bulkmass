@@ -431,6 +431,7 @@ function handleReferenceUpload(fileList, type) {
     }
 
     const filesToAdd = files.slice(0, availableSlots);
+    console.log(`[Reference Upload] Added ${filesToAdd.length} files for ${type}`);
 
     filesToAdd.forEach(file => {
         const reader = new FileReader();
@@ -466,6 +467,8 @@ function renderReferencePreviews(type) {
     const items = store[storeKey];
     const previewContainer = DOM[`ref${type}Previews`];
     const limitLabel = DOM[`ref${type}Limit`];
+
+    console.log(`[Reference Render] Rendering ${items.length} items for ${type}`);
 
     limitLabel.textContent = `${items.length} / ${MAX_REFS_PER_CAT}`;
 

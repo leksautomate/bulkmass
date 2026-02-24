@@ -9,8 +9,9 @@
 // ============================================
 
 const DB_NAME = 'bulkmass';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'images';
+const VIDEO_STORE = 'videos';
 
 let _dbInstance = null;
 
@@ -22,6 +23,9 @@ function openDB() {
             const db = e.target.result;
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains(VIDEO_STORE)) {
+                db.createObjectStore(VIDEO_STORE, { keyPath: 'id' });
             }
         };
         req.onsuccess = () => {
@@ -83,14 +87,53 @@ async function dbClearAll() {
     });
 }
 
+async function dbSaveVideo(id, blob, prompt) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(VIDEO_STORE, 'readwrite');
+        tx.objectStore(VIDEO_STORE).put({ id, blob, prompt, savedAt: Date.now() });
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function dbGetVideo(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(VIDEO_STORE, 'readonly');
+        const req = tx.objectStore(VIDEO_STORE).get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function dbClearAllVideos() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(VIDEO_STORE, 'readwrite');
+        tx.objectStore(VIDEO_STORE).clear();
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
 // ============================================
 // HELPERS
 // ============================================
 
-async function base64ToBlob(base64) {
-    const dataUrl = base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`;
+async function base64ToBlob(base64, mimeType = 'image/png') {
+    const dataUrl = base64.startsWith('data:') ? base64 : `data:${mimeType};base64,${base64}`;
     const res = await fetch(dataUrl);
     return res.blob();
+}
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
 function generateId() {
@@ -130,10 +173,18 @@ const store = {
     // Arrays for up to 3 references per category: { image: base64, caption: '' }
     refSubject: [],
     refStyle: [],
-    refScene: []
+    refScene: [],
+
+    // Motion / Video
+    videoModel: 'VEO_FAST_3_1',
+    isAnimating: false,
+    animatedCount: 0,
+    animationErrors: 0,
+    animationTotal: 0
 };
 // Blob URL cache (not persisted, rebuilt from IndexedDB)
 const blobUrls = new Map();
+const videoBlobUrls = new Map();
 
 let cookieExpiration = null;
 let timerInterval = null;
@@ -197,6 +248,14 @@ function cacheDom() {
     DOM.btnSaveRegenerate = $('#btn-save-regenerate');
 
     DOM.toastContainer = $('#toast-container');
+
+    // Motion Box
+    DOM.motionPromptsInput = $('#motion-prompts-input');
+    DOM.btnAnimateAll = $('#btn-animate-all');
+    DOM.btnDownloadVideos = $('#btn-download-videos');
+    DOM.motionProgress = $('#motion-progress');
+    DOM.motionScriptCount = $('#motion-script-count');
+    DOM.videoModelSelect = $('#video-model-select');
 
     // Reference Multiple Dropzones
     ['subject', 'style', 'scene'].forEach(cat => {
@@ -504,6 +563,186 @@ function renderReferencePreviews(type) {
 }
 
 // ============================================
+// MOTION BOX / VIDEO ANIMATION
+// ============================================
+
+function updateAnimateButton() {
+    if (!DOM.btnAnimateAll) return;
+    const hasCompleted = store.jobs.some(j => j.status === 'completed');
+    const hasScripts = DOM.motionPromptsInput && DOM.motionPromptsInput.value.trim().length > 0;
+    DOM.btnAnimateAll.disabled = !hasCompleted || !hasScripts || store.isAnimating || store.isRunning;
+
+    const hasVideos = store.jobs.some(j => j.videoStatus === 'animated');
+    if (DOM.btnDownloadVideos) DOM.btnDownloadVideos.disabled = !hasVideos;
+}
+
+function updateMotionScriptCount() {
+    if (!DOM.motionPromptsInput || !DOM.motionScriptCount) return;
+    const lines = DOM.motionPromptsInput.value.trim().split('\n').filter(l => l.trim() && !l.startsWith('#'));
+    DOM.motionScriptCount.textContent = `${lines.length} script${lines.length !== 1 ? 's' : ''}`;
+    updateAnimateButton();
+}
+
+function updateMotionProgress() {
+    if (!DOM.motionProgress) return;
+    if (!store.isAnimating && store.animatedCount === 0 && store.animationErrors === 0) {
+        DOM.motionProgress.textContent = '';
+        return;
+    }
+    const total = store.animationTotal;
+    let text = `${store.animatedCount} of ${total} animated`;
+    if (store.animationErrors > 0) text += `, ${store.animationErrors} failed`;
+    if (store.isAnimating) text += '...';
+    DOM.motionProgress.textContent = text;
+}
+
+async function animateAll() {
+    if (!store.cookieValid) { toast('Validate cookie first', 'error'); return; }
+    if (store.isAnimating) { toast('Animation already running', 'info'); return; }
+    if (store.isRunning) { toast('Wait for image generation to finish', 'info'); return; }
+
+    const scriptLines = DOM.motionPromptsInput.value.trim()
+        .split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    if (scriptLines.length === 0) { toast('Add motion prompts first', 'error'); return; }
+
+    const completedJobs = store.jobs.filter(j => j.status === 'completed');
+    if (completedJobs.length === 0) { toast('No completed images to animate', 'error'); return; }
+
+    const pairs = completedJobs.slice(0, scriptLines.length).map((job, i) => ({
+        job,
+        script: scriptLines[i]
+    }));
+
+    store.isAnimating = true;
+    store.animatedCount = 0;
+    store.animationErrors = 0;
+    store.animationTotal = pairs.length;
+
+    DOM.btnAnimateAll.disabled = true;
+    DOM.btnAnimateAll.textContent = 'Animating...';
+    updateMotionProgress();
+    toast(`Animating ${pairs.length} image${pairs.length !== 1 ? 's' : ''}...`, 'info');
+
+    for (const { job, script } of pairs) {
+        await animateSingleJob(job.id, script);
+        updateMotionProgress();
+    }
+
+    store.isAnimating = false;
+    DOM.btnAnimateAll.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Animate All';
+    updateAnimateButton();
+    updateMotionProgress();
+
+    const msg = `Done! ${store.animatedCount} video${store.animatedCount !== 1 ? 's' : ''} created` +
+        (store.animationErrors > 0 ? `, ${store.animationErrors} failed` : '');
+    toast(msg, store.animationErrors > 0 ? 'info' : 'success');
+}
+
+async function animateSingleJob(jobId, videoScript) {
+    const job = store.jobs.find(j => j.id === jobId);
+    if (!job || job.status !== 'completed') return;
+
+    job.videoStatus = 'animating';
+    job.videoError = null;
+    updateCard(job.id);
+
+    try {
+        const record = await dbGetImage(job.id);
+        if (!record || !record.blob) {
+            job.videoStatus = 'video-error';
+            job.videoError = 'Image not found in storage';
+            updateCard(job.id);
+            store.animationErrors++;
+            return;
+        }
+
+        const imageBase64 = await blobToBase64(record.blob);
+
+        const res = await fetch('/api/animate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cookie: store.cookie,
+                imageBase64,
+                imagePrompt: job.prompt,
+                videoScript,
+                model: store.videoModel
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success && data.video) {
+            const videoBlob = await base64ToBlob(data.video, 'video/mp4');
+            const videoBlobUrl = URL.createObjectURL(videoBlob);
+
+            // Revoke old video URL if any
+            if (videoBlobUrls.has(job.id)) URL.revokeObjectURL(videoBlobUrls.get(job.id));
+
+            job.videoStatus = 'animated';
+            job.videoBlobUrl = videoBlobUrl;
+            videoBlobUrls.set(job.id, videoBlobUrl);
+
+            await dbSaveVideo(job.id, videoBlob, job.prompt);
+            store.animatedCount++;
+        } else {
+            job.videoStatus = 'video-error';
+            job.videoError = data.error || 'Unknown error';
+            store.animationErrors++;
+
+            if (res.status === 401 || data.error?.includes('401')) {
+                updateStatus(false);
+                toast('Cookie expired during animation. Please re-validate.', 'error');
+            }
+        }
+    } catch (err) {
+        job.videoStatus = 'video-error';
+        job.videoError = err.message;
+        store.animationErrors++;
+    }
+
+    updateCard(job.id);
+    updateAnimateButton();
+}
+
+async function downloadAllVideos() {
+    const animated = store.jobs.filter(j => j.videoStatus === 'animated');
+    if (animated.length === 0) { toast('No videos to download', 'error'); return; }
+
+    if (typeof JSZip === 'undefined') { toast('JSZip not loaded', 'error'); return; }
+
+    toast('Creating video ZIP...', 'info');
+
+    try {
+        const zip = new JSZip();
+        let count = 0;
+
+        for (const job of animated) {
+            try {
+                const record = await dbGetVideo(job.id);
+                if (record && record.blob) {
+                    count++;
+                    zip.file(`${count}.mp4`, record.blob);
+                }
+            } catch { }
+        }
+
+        if (count === 0) { toast('No videos found in storage', 'error'); return; }
+
+        const content = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bulkmass_videos_${Date.now()}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast(`Downloaded ${count} video${count !== 1 ? 's' : ''}`, 'success');
+    } catch (err) {
+        toast('Video ZIP failed: ' + err.message, 'error');
+    }
+}
+
+// ============================================
 // CLIENT-SIDE QUEUE ENGINE
 // ============================================
 
@@ -529,7 +768,10 @@ function buildJobList() {
                 prompt: fullPrompt,
                 status: 'pending',
                 blobUrl: null,
-                error: null
+                error: null,
+                videoBlobUrl: null,
+                videoStatus: null,
+                videoError: null
             });
         }
     }
@@ -574,6 +816,7 @@ async function processQueue() {
         const failed = store.jobs.filter(j => j.status === 'error').length;
         toast(`Done! ${store.completedCount} generated${failed > 0 ? `, ${failed} failed` : ''}`, 'success');
         saveQueueState();
+        updateAnimateButton();
         return;
     }
 
@@ -863,7 +1106,16 @@ function buildCard(job, index) {
     const statusClass = job.status;
     let imageHtml;
 
-    if (job.status === 'completed' && job.blobUrl) {
+    if (job.videoStatus === 'animated' && job.videoBlobUrl) {
+        imageHtml = `<video class="card-image card-video" src="${job.videoBlobUrl}" autoplay loop muted playsinline></video>`;
+    } else if (job.videoStatus === 'animating') {
+        imageHtml = `<div class="card-image-placeholder pulse">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5">
+                <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+            <div class="error-hint" style="color:var(--accent)">Animating...</div>
+        </div>`;
+    } else if (job.status === 'completed' && job.blobUrl) {
         imageHtml = `<img class="card-image" src="${job.blobUrl}" alt="" data-action="preview" data-id="${job.id}">`;
     } else if (job.status === 'processing') {
         imageHtml = `<div class="card-image-placeholder pulse">
@@ -893,12 +1145,31 @@ function buildCard(job, index) {
         error: `<span class="status-badge status-error" title="${escapeHtml(job.error || '')}">Error</span>`
     };
 
+    const videoBadge = job.videoStatus === 'animated'
+        ? '<span class="status-badge status-video">Video</span>'
+        : job.videoStatus === 'animating'
+            ? '<span class="status-badge status-processing">Animating</span>'
+            : job.videoStatus === 'video-error'
+                ? `<span class="status-badge status-error" title="${escapeHtml(job.videoError || '')}">Vid Err</span>`
+                : '';
+
+    const videoBtn = job.videoStatus === 'animated' && job.videoBlobUrl
+        ? `<button class="card-btn" data-action="download-video" data-id="${job.id}" title="Download Video">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+           </button>`
+        : '';
+
     return `<div class="result-card ${statusClass}" data-id="${job.id}">
         <div class="card-image-wrap">${imageHtml}</div>
         <div class="card-body">
             <div class="card-prompt" title="${escapeHtml(job.prompt)}">${escapeHtml(job.prompt)}</div>
             <div class="card-footer">
-                ${statusBadges[job.status] || statusBadges.pending}
+                <div class="card-badges">
+                    ${statusBadges[job.status] || statusBadges.pending}
+                    ${videoBadge}
+                </div>
                 <div class="card-actions">
                     ${job.status === 'error' ? `
                     <button class="card-btn edit" data-action="edit" data-id="${job.id}" title="Edit Prompt">
@@ -908,9 +1179,10 @@ function buildCard(job, index) {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                     </button>
                     ` : `
-                    <button class="card-btn" data-action="download" data-id="${job.id}" title="Download" ${!job.blobUrl ? 'disabled' : ''}>
+                    <button class="card-btn" data-action="download" data-id="${job.id}" title="Download Image" ${!job.blobUrl ? 'disabled' : ''}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </button>
+                    ${videoBtn}
                     <button class="card-btn" data-action="preview" data-id="${job.id}" title="Preview" ${!job.blobUrl ? 'disabled' : ''}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>
@@ -938,6 +1210,15 @@ function handleCardAction(action, jobId) {
                 const a = document.createElement('a');
                 a.href = job.blobUrl;
                 a.download = `bulkmass_${job.id}.png`;
+                a.click();
+            }
+            break;
+
+        case 'download-video':
+            if (job.videoBlobUrl) {
+                const a = document.createElement('a');
+                a.href = job.videoBlobUrl;
+                a.download = `bulkmass_${job.id}.mp4`;
                 a.click();
             }
             break;
@@ -1005,9 +1286,9 @@ async function regenerateSingleJob(jobId) {
     saveQueueState();
 
     const references = [];
-    if (store.refSubject) references.push({ category: 'SUBJECT', image: store.refSubject });
-    if (store.refStyle) references.push({ category: 'STYLE', image: store.refStyle });
-    if (store.refScene) references.push({ category: 'SCENE', image: store.refScene });
+    store.refSubject.forEach(ref => references.push({ category: 'SUBJECT', image: ref.image, caption: ref.caption }));
+    store.refStyle.forEach(ref => references.push({ category: 'STYLE', image: ref.image, caption: ref.caption }));
+    store.refScene.forEach(ref => references.push({ category: 'SCENE', image: ref.image, caption: ref.caption }));
 
     try {
         const res = await fetch('/api/generate', {
@@ -1142,13 +1423,14 @@ async function clearAll() {
     }
 
     // Revoke all blob URLs
-    for (const [id, url] of blobUrls) {
-        URL.revokeObjectURL(url);
-    }
+    for (const [, url] of blobUrls) URL.revokeObjectURL(url);
     blobUrls.clear();
+    for (const [, url] of videoBlobUrls) URL.revokeObjectURL(url);
+    videoBlobUrls.clear();
 
     // Clear IndexedDB
     try { await dbClearAll(); } catch { }
+    try { await dbClearAllVideos(); } catch { }
 
     // Reset state
     store.jobs = [];
@@ -1156,6 +1438,10 @@ async function clearAll() {
     store.failedCount = 0;
     store.totalCount = 0;
     store.consecutiveErrors = 0;
+    store.isAnimating = false;
+    store.animatedCount = 0;
+    store.animationErrors = 0;
+    store.animationTotal = 0;
 
     // Clear localStorage queue
     localStorage.removeItem('bulkmass_queue');
@@ -1183,11 +1469,6 @@ const svgPlay = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentCo
 
 function init() {
     cacheDom();
-
-    // Reference Images state init
-    store.refSubject = null;
-    store.refStyle = null;
-    store.refScene = null;
 
     // Cookie
     DOM.btnValidate.addEventListener('click', validateCookie);
@@ -1240,17 +1521,6 @@ function init() {
         e.preventDefault();
         DOM.dropZone.classList.remove('dragover');
         if (e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]);
-    });
-
-    // References file uploads
-    DOM.refSubjectUpload.addEventListener('change', (e) => handleReferenceUpload(e.target.files, 'Subject'));
-    DOM.refStyleUpload.addEventListener('change', (e) => handleReferenceUpload(e.target.files, 'Style'));
-    DOM.refSceneUpload.addEventListener('change', (e) => handleReferenceUpload(e.target.files, 'Scene'));
-
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('ref-preview-clear')) {
-            clearReference(e.target.dataset.type);
-        }
     });
 
     // Generation controls
@@ -1326,6 +1596,14 @@ function init() {
 
     // Bind reference image events (drag-and-drop + click)
     bindReferenceEvents();
+
+    // Motion Box
+    DOM.motionPromptsInput.addEventListener('input', updateMotionScriptCount);
+    DOM.btnAnimateAll.addEventListener('click', animateAll);
+    DOM.btnDownloadVideos.addEventListener('click', downloadAllVideos);
+    DOM.videoModelSelect.addEventListener('change', () => {
+        store.videoModel = DOM.videoModelSelect.value;
+    });
 
     updatePromptCount();
     updatePrefixPreview();

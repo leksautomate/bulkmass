@@ -38,6 +38,7 @@ const upload = multer({ dest: UPLOADS_DIR, limits: { fileSize: 5 * 1024 * 1024 }
 
 // Whisk API (ESM dynamic import)
 let Whisk = null;
+let MediaClass = null;
 let whiskLoaded = false;
 
 async function loadWhiskApi() {
@@ -50,11 +51,13 @@ async function loadWhiskApi() {
         console.log('[Whisk] Local API loaded');
 
         Whisk = mod.Whisk || mod.default?.Whisk || mod.default;
+        MediaClass = mod.Media || mod.default?.Media;
         whiskLoaded = true;
     } catch (e) {
         console.warn('[Whisk] API not available:', e.message);
         console.warn(e.stack);
         Whisk = null;
+        MediaClass = null;
     }
 }
 
@@ -64,7 +67,7 @@ app.set('trust proxy', 1);
 // Middleware
 app.use(cors());
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // Security headers
 app.use((req, res, next) => {
@@ -344,6 +347,75 @@ app.post('/api/generate', async (req, res) => {
         console.error('[Generate] Error:', error.message);
         const status = error.message?.includes('401') ? 401 : 500;
         res.status(status).json({ success: false, error: error.message });
+    }
+});
+
+// Animate a single image to video
+app.post('/api/animate', async (req, res) => {
+    try {
+        const { cookie, imageBase64, imagePrompt, videoScript, model } = req.body;
+        if (!cookie) return res.status(400).json({ success: false, error: 'Cookie is required' });
+        if (!imageBase64) return res.status(400).json({ success: false, error: 'Image data is required' });
+        if (!videoScript?.trim()) return res.status(400).json({ success: false, error: 'Video script is required' });
+
+        if (!Whisk || !MediaClass) {
+            return res.status(500).json({ success: false, error: 'Whisk API not available' });
+        }
+
+        const { cookieString } = parseCookies(cookie);
+        if (!cookieString) return res.status(400).json({ success: false, error: 'Invalid cookie format' });
+
+        // Strip data URI prefix to get raw base64
+        const rawBytes = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+
+        const videoModel = model === 'VEO_3_1' ? 'VEO_3_1_I2V_12STEP' : 'veo_3_1_i2v_s_fast';
+
+        // 150s timeout — video generation polls for ~40s
+        const timeout = setTimeout(() => {
+            if (!res.headersSent) {
+                res.status(504).json({ success: false, error: 'Animation timed out (150s)' });
+            }
+        }, 150000);
+
+        try {
+            const whisk = new Whisk(cookieString);
+            const project = await whisk.newProject('Bulkmass-Video');
+
+            const media = new MediaClass({
+                seed: 0,
+                prompt: imagePrompt || 'image',
+                workflowId: project.projectId,
+                encodedMedia: rawBytes,
+                mediaGenerationId: 'tmp_' + Date.now(),
+                aspectRatio: 'IMAGE_ASPECT_RATIO_LANDSCAPE',
+                mediaType: 'IMAGE',
+                model: 'IMAGEN_3_5',
+                account: whisk.account
+            });
+
+            const videoMedia = await media.animate(videoScript, videoModel);
+
+            clearTimeout(timeout);
+
+            if (res.headersSent) return;
+
+            res.json({
+                success: true,
+                video: videoMedia.encodedMedia,
+                prompt: videoMedia.prompt,
+                mediaId: videoMedia.mediaGenerationId
+            });
+
+            try { project.delete().catch(() => {}); } catch (_) {}
+        } catch (innerError) {
+            clearTimeout(timeout);
+            if (res.headersSent) return;
+            throw innerError;
+        }
+    } catch (error) {
+        console.error('[Animate] Error:', error.message);
+        const status = error.message?.includes('401') ? 401 : 500;
+        if (!res.headersSent) res.status(status).json({ success: false, error: error.message });
     }
 });
 

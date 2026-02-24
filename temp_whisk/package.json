@@ -1,0 +1,16 @@
+{
+  "name": "temp_whisk",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@rohitaryal/whisk-api": "^4.0.0"
+  }
+}

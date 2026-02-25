@@ -353,7 +353,7 @@ app.post('/api/generate', async (req, res) => {
 // Animate a single image to video
 app.post('/api/animate', async (req, res) => {
     try {
-        const { cookie, imageBase64, imagePrompt, videoScript, model } = req.body;
+        const { cookie, imageBase64, imagePrompt, videoScript } = req.body;
         if (!cookie) return res.status(400).json({ success: false, error: 'Cookie is required' });
         if (!imageBase64) return res.status(400).json({ success: false, error: 'Image data is required' });
         if (!videoScript?.trim()) return res.status(400).json({ success: false, error: 'Video script is required' });
@@ -368,14 +368,14 @@ app.post('/api/animate', async (req, res) => {
         // Strip data URI prefix to get raw base64
         const rawBytes = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
-        const videoModel = model === 'VEO_3_1' ? 'VEO_3_1_I2V_12STEP' : 'veo_3_1_i2v_s_fast';
+        const videoModel = 'VEO_3_1_I2V_12STEP';
 
-        // 150s timeout — video generation polls for ~40s
+        // 200s timeout — video generation polls up to 3 min (60 × 3s)
         const timeout = setTimeout(() => {
             if (!res.headersSent) {
-                res.status(504).json({ success: false, error: 'Animation timed out (150s)' });
+                res.status(504).json({ success: false, error: 'Animation timed out (200s)' });
             }
-        }, 150000);
+        }, 200000);
 
         try {
             const whisk = new Whisk(cookieString);

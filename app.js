@@ -137,7 +137,7 @@ function blobToBase64(blob) {
 }
 
 function generateId() {
-    return `img_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+    return `img_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function escapeHtml(str) {
@@ -255,7 +255,6 @@ function cacheDom() {
     DOM.btnDownloadVideos = $('#btn-download-videos');
     DOM.motionProgress = $('#motion-progress');
     DOM.motionScriptCount = $('#motion-script-count');
-    DOM.videoModelSelect = $('#video-model-select');
 
     // Reference Multiple Dropzones
     ['subject', 'style', 'scene'].forEach(cat => {
@@ -987,7 +986,6 @@ function updateProgressBar() {
 }
 
 function updateSidebarProgress() {
-    const processed = store.completedCount + store.failedCount;
     DOM.sidebarProgress.textContent = `${store.completedCount} of ${store.totalCount} completed` +
         (store.failedCount > 0 ? `, ${store.failedCount} failed` : '');
 }
@@ -1102,7 +1100,7 @@ function updateCard(jobId) {
     el.outerHTML = buildCard(job, i);
 }
 
-function buildCard(job, index) {
+function buildCard(job) {
     const statusClass = job.status;
     let imageHtml;
 
@@ -1379,8 +1377,6 @@ async function downloadAllAsZip() {
     try {
         const zip = new JSZip();
 
-        // Only download images that are on the current dashboard
-        const dashboardIds = new Set(completed.map(j => j.id));
         let added = 0;
 
         for (const job of completed) {
@@ -1601,10 +1597,6 @@ function init() {
     DOM.motionPromptsInput.addEventListener('input', updateMotionScriptCount);
     DOM.btnAnimateAll.addEventListener('click', animateAll);
     DOM.btnDownloadVideos.addEventListener('click', downloadAllVideos);
-    DOM.videoModelSelect.addEventListener('change', () => {
-        store.videoModel = DOM.videoModelSelect.value;
-    });
-
     updatePromptCount();
     updatePrefixPreview();
     updateSidebarSteps();

@@ -37,10 +37,14 @@ export class Account {
             throw new Error("new cookie is required")
         }
 
+        if (!session || !session.access_token) {
+            throw new Error("401 Unauthorized - cookie is invalid or expired")
+        }
+
         this.authToken = session.access_token;
         this.expiryDate = new Date(session.expires);
-        this.userName = session.user.name;
-        this.userEmail = session.user.email;
+        this.userName = session.user?.name;
+        this.userEmail = session.user?.email;
     }
 
     async getToken(): Promise<string> {

@@ -26,10 +26,13 @@ export class Account {
         if (session.error === "ACCESS_TOKEN_REFRESH_NEEDED") {
             throw new Error("new cookie is required");
         }
+        if (!session || !session.access_token) {
+            throw new Error("401 Unauthorized - cookie is invalid or expired");
+        }
         this.authToken = session.access_token;
         this.expiryDate = new Date(session.expires);
-        this.userName = session.user.name;
-        this.userEmail = session.user.email;
+        this.userName = session.user?.name;
+        this.userEmail = session.user?.email;
     }
     async getToken() {
         if (this.isExpired()) {
@@ -162,8 +165,8 @@ export class Whisk {
             throw new Error("invalid or missing account");
         }
         const mediaInfo = await request(
-        // key is hardcoded in the original code too
-        `https://aisandbox-pa.googleapis.com/v1/media/${mediaId}?key=AIzaSyBtrm0o5ab1c-Ec8ZuLcGt3oJAA5VWt3pY`, {
+            // key is hardcoded in the original code too
+            `https://aisandbox-pa.googleapis.com/v1/media/${mediaId}?key=AIzaSyBtrm0o5ab1c-Ec8ZuLcGt3oJAA5VWt3pY`, {
             headers: {
                 "Referer": "https://labs.google/", // yep this ones required
                 "Authorization": `Bearer ${await account.getToken()}`,

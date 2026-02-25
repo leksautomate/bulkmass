@@ -185,27 +185,36 @@ export class Media {
                 }
             );
 
-            // Await for 2 second before each request
-            await new Promise(resolve => setTimeout(resolve, 2000))
+            // Await for 3 seconds before each request
+            await new Promise(resolve => setTimeout(resolve, 3000))
+
+            // Log response shape on first poll to detect API structure changes
+            if (i === 1) {
+                console.log('[VideoFx poll shape]', JSON.stringify(videoResults).slice(0, 600));
+            }
 
             if (videoResults.status === "MEDIA_GENERATION_STATUS_SUCCESSFUL") {
-                const video = videoResults.operation.metadata.video;
+                // API response shape varies — try all known paths defensively
+                const video = videoResults.operation?.metadata?.video
+                    ?? videoResults.metadata?.video
+                    ?? videoResults.video
+                    ?? {};
 
                 return new Media({
-                    seed: video.seed,
-                    prompt: video.prompt,
+                    seed: video.seed ?? 0,
+                    prompt: video.prompt ?? '',
                     workflowId: this.workflowId,
-                    encodedMedia: videoResults.rawBytes,
-                    mediaGenerationId: videoResults.mediaGenerationId,
-                    aspectRatio: video.aspectRatio,
+                    encodedMedia: videoResults.rawBytes ?? videoResults.encodedMedia ?? '',
+                    mediaGenerationId: videoResults.mediaGenerationId ?? '',
+                    aspectRatio: video.aspectRatio ?? 'IMAGE_ASPECT_RATIO_LANDSCAPE',
                     mediaType: "VIDEO",
-                    model: video.model,
+                    model: video.model ?? 'VEO_3_1_I2V_12STEP',
                     account: this.account,
                 });
             }
 
-            if (i >= 20) {
-                throw new Error("failed to generate video: " + videoResults)
+            if (i >= 60) {
+                throw new Error("failed to generate video after 3 minutes: status=" + videoResults.status)
             }
         }
     }
